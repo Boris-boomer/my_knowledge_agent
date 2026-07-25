@@ -1,0 +1,221 @@
+# ================================================================
+# my_knowledge_agent 配置文件
+# ================================================================
+#
+# 这个文件是项目的唯一配置文件。
+# 你只需要修改这个文件，不需要改动任何 Python 代码。
+#
+# 【快速上手】
+#   1. 修改 knowledge_base.paths 为你的文档文件夹路径
+#   2. 保存文件
+#   3. 运行 uv run python src/build_kb.py 构建知识库
+#   4. 运行 uv run python src/app.py 启动问答界面
+# ================================================================
+
+
+# ================================================================
+# 第一部分：应用全局设置
+# ================================================================
+
+app:
+  # 日志级别：DEBUG / INFO / WARNING / ERROR
+  # DEBUG：打印所有调试信息（推荐首次运行时使用）
+  # INFO：打印关键步骤（推荐正常使用）
+  log_level: "INFO"
+
+  # 启动时检查路径是否存在
+  validate_paths_on_start: true
+
+
+# ================================================================
+# 第二部分：知识库文件夹路径 ⚠️ 必须修改
+# ================================================================
+
+knowledge_base:
+  # ⚠️ 改成你存放文档的文件夹路径
+  paths:
+    - "D:/ai_hands_on/idea/my_knowledge_agent/data"
+    # - "E:/Work/Projects"
+    # - "C:/Users/用户名/Desktop/笔记"
+
+  # 排除子文件夹（支持通配符模式）
+  exclude_patterns:
+    - "*/备份/*"
+    - "*/旧版本/*"
+
+  # 是否递归读取子文件夹
+  recursive: true
+
+
+# ================================================================
+# 第三部分：LLM 推理模型配置（文本生成）
+# ================================================================
+
+llm:
+  enabled: true
+
+  # 路由策略
+  # auto：自动选择，优先 primary，失败时降级到 fallback
+  # primary_only：只使用 primary，不降级
+  # fallback_only：只使用 fallback 列表
+  strategy: auto
+
+  # 默认参数（所有模型共用）
+  temperature: 0.3
+  max_tokens: 512
+  timeout: 60
+
+  # ================================================================
+  # 主模型（优先使用）
+  # ================================================================
+  primary:
+    provider: ollama
+    params:
+      model: deepseek-r1:14b
+      base_url: http://localhost:11434
+
+      # ---- 如果用 openai（取消注释） ----
+      # model: gpt-4o-mini
+      # api_key: sk-xxx
+      # base_url: https://api.openai.com/v1
+
+      # ---- 如果用 deepseek（取消注释） ----
+      # model: deepseek-chat
+      # api_key: sk-xxx
+      # base_url: https://api.deepseek.com/v1
+
+      # ---- 如果用 qwen（阿里通义，取消注释） ----
+      # model: qwen-plus
+      # api_key: sk-xxx
+      # base_url: https://dashscope.aliyuncs.com/api/v1
+
+      # ---- 如果用 zhipu（智谱，取消注释） ----
+      # model: glm-4-flash
+      # api_key: sk-xxx
+      # base_url: https://open.bigmodel.cn/api/paas/v4
+
+      # ---- 如果用 baidu（百度文心，取消注释） ----
+      # model: ernie-3.5-8k
+      # api_key: 你的API Key
+      # secret_key: 你的Secret Key
+
+  # ================================================================
+  # 备选模型列表（主模型不可用时自动降级）
+  # ================================================================
+  fallback:
+    - provider: ollama
+      params:
+        model: deepseek-r1:14b
+        base_url: http://localhost:11434
+
+    # - provider: ollama
+    #   params:
+    #     model: qwen2.5:7b
+    #     base_url: http://localhost:11434
+
+
+# ================================================================
+# 第四部分：Embedding 向量化模型配置（文本→向量）
+# ================================================================
+
+embedder:
+  enabled: true
+  backend: ollama
+
+  params:
+    model: qwen3-embedding:0.6b
+    base_url: http://localhost:11434
+    timeout: 30
+
+    # ---- 如果用 openai（取消注释） ----
+    # model: text-embedding-ada-002
+    # api_key: sk-xxx
+    # base_url: https://api.openai.com/v1
+
+
+# ================================================================
+# 第五部分：向量数据库配置
+# ================================================================
+
+vector_store:
+  enabled: true
+  backend: chromadb
+
+  params:
+    path: "./chroma_db"
+    collection_name: "docs"
+    distance_metric: "cosine"  # cosine / l2 / ip
+
+
+# ================================================================
+# 第六部分：文本分块参数（动态分块）
+# ================================================================
+
+chunker:
+  # 动态分块参数
+  # 策略：优先按段落切分，短段落合并，长段落按句子切分
+  min_chunk_size: 200    # 最小块大小（字数）
+  max_chunk_size: 800    # 最大块大小（字数）
+  overlap: 50            # 块与块之间的重叠字数
+
+
+# ================================================================
+# 第七部分：Agent 行为配置
+# ================================================================
+
+agent:
+  enabled: true
+  top_k: 3                 # 检索返回的文档块数量
+  max_steps: 5             # ReAct 循环最大步数
+  stream: true             # 是否启用流式输出
+
+
+# ================================================================
+# 第八部分：Reranker 重排序配置
+# ================================================================
+
+reranker:
+  # 是否启用 Reranker
+  enabled: true
+
+  # Cross-Encoder 模型名称
+  # - cross-encoder/ms-marco-MiniLM-L-6-v2  (推荐，轻量，约 80MB)
+  # - cross-encoder/ms-marco-MiniLM-L-12-v2 (更准，约 200MB)
+  # - BAAI/bge-reranker-base                  (中文优化，约 1GB)
+  model: "D:/models/ms-marco-MiniLM-L-6-v2"
+
+  # 重排序权重（默认 0.6）
+  # 最终分数 = 0.4 * 向量相似度 + 0.6 * Reranker 分数
+  weight_rerank: 0.6
+
+
+# ================================================================
+# 第九部分：检索模式配置（新增：多路检索并行）
+# ================================================================
+
+retrieval_mode: "parallel"   # hybrid / vectorless / parallel
+# - hybrid: 仅使用混合检索（向量 + BM25）
+# - vectorless: 仅使用文档树导航（无向量）
+# - parallel: 两者并行执行，融合结果（推荐）
+
+
+# ================================================================
+# 第十部分：语义缓存配置（可选）
+# ================================================================
+
+cache:
+  enabled: false
+  threshold: 0.92
+  ttl_seconds: 86400
+  max_entries: 10000
+  collection_name: cache
+
+
+# ================================================================
+# 第十一部分：可观测性配置
+# ================================================================
+
+observability:
+  enabled: true
+  service_name: my_knowledge_agent
+  track_cost: true
